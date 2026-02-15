@@ -1,0 +1,1313 @@
+local Players = game:GetService("Players")
+local UIS = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local Debris = game:GetService("Debris")
+local Workspace = game:GetService("Workspace")
+local player = Players.LocalPlayer
+
+-- gui colours ref 664263
+
+local MAIN         = Color3.fromRGB(102, 66, 99)   -- #664263 base
+local RAISED       = Color3.fromRGB(122, 82, 118)  -- lighter raised elements
+local TAB          = Color3.fromRGB(142, 98, 138)  -- light tabs
+local TAB_SELECTED = Color3.fromRGB(162, 118, 158) -- selected tab highlight
+local INNER        = Color3.fromRGB(152, 92, 140)  -- inner frame slightly lighter than main
+local BUTTON       = Color3.fromRGB(172, 112, 160) -- default button
+local BUTTON_CLICK = Color3.fromRGB(192, 132, 180) -- clicked button
+local TEXT         = Color3.fromRGB(255, 255, 255) -- keep text white
+local SHADOW       = Color3.fromRGB(80, 40, 60)    -- shadow text slightly darker
+
+-- main gui
+local gui = Instance.new("ScreenGui")
+gui.Parent = player.PlayerGui
+gui.ResetOnSpawn = false
+
+local main = Instance.new("Frame")
+main.Parent = gui
+main.Size = UDim2.new(0,550,0,340)
+main.Position = UDim2.new(0.5,-275,0.5,-170)
+main.BackgroundColor3 = MAIN
+main.BorderSizePixel = 0
+main.Active = true
+Instance.new("UICorner", main).CornerRadius = UDim.new(0,25)
+
+-- dragging
+do
+    local dragging, dragInput, dragStart, startPos = false, nil, nil, nil
+    main.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = main.Position
+            dragInput = input
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end)
+    main.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            dragInput = input
+        end
+    end)
+    UIS.InputChanged:Connect(function(input)
+        if input == dragInput and dragging then
+            local delta = input.Position - dragStart
+            main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X,
+                startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+end
+
+-- text shadows
+local function createShadowText(parent, text, size)
+    local shadow = Instance.new("TextLabel")
+    shadow.Name = "ShadowText"
+    shadow.Parent = parent
+    shadow.Size = UDim2.new(1,0,1,0)
+    shadow.Position = UDim2.new(0,2,0,2)
+    shadow.BackgroundTransparency = 1
+    shadow.Text = text
+    shadow.Font = Enum.Font.FredokaOne
+    shadow.TextSize = size
+    shadow.TextColor3 = SHADOW
+
+    local real = shadow:Clone()
+    real.Name = "RealText"
+    real.Parent = parent
+    real.Position = UDim2.new(0,0,0,0)
+    real.TextColor3 = TEXT
+
+    return real
+end
+
+-- title
+local titleHolder = Instance.new("Frame")
+titleHolder.Parent = main
+titleHolder.Size = UDim2.new(0,200,0,50)
+titleHolder.Position = UDim2.new(0,15,-0.05,0)
+titleHolder.BackgroundColor3 = RAISED
+titleHolder.BorderSizePixel = 0
+Instance.new("UICorner", titleHolder).CornerRadius = UDim.new(0,18)
+createShadowText(titleHolder,"nightgui",30)
+
+-- top buttons
+local function createTopButton(symbol,offset)
+    local holder = Instance.new("Frame")
+    holder.Parent = main
+    holder.Size = UDim2.new(0,45,0,45)
+    holder.Position = UDim2.new(1,offset,-0.05,0)
+    holder.BackgroundColor3 = TAB
+    holder.BorderSizePixel = 0
+    Instance.new("UICorner", holder).CornerRadius = UDim.new(0,14)
+
+    local btn = Instance.new("TextButton")
+    btn.Parent = holder
+    btn.Size = UDim2.new(1,0,1,0)
+    btn.BackgroundTransparency = 1
+    btn.Text = ""
+    createShadowText(holder,symbol,28)
+
+    btn.MouseButton1Down:Connect(function() holder.BackgroundColor3 = BUTTON_CLICK end)
+    btn.MouseButton1Up:Connect(function() holder.BackgroundColor3 = TAB end)
+    return btn, holder
+end
+
+local minimize, _ = createTopButton("-", -100)
+local close, _ = createTopButton("X", -50)
+
+close.MouseButton1Click:Connect(function()
+    gui:Destroy()
+end)
+
+-- tabs
+local tabsHolder = Instance.new("ScrollingFrame")
+tabsHolder.Parent = main
+tabsHolder.Position = UDim2.new(0,15,0,60)
+tabsHolder.Size = UDim2.new(1,-30,0,50)
+tabsHolder.BackgroundTransparency = 1
+tabsHolder.BorderSizePixel = 0
+tabsHolder.ScrollBarThickness = 6
+tabsHolder.HorizontalScrollBarInset = Enum.ScrollBarInset.Always
+tabsHolder.CanvasSize = UDim2.new(0,0,0,0)
+
+local layout = Instance.new("UIListLayout")
+layout.Parent = tabsHolder
+layout.FillDirection = Enum.FillDirection.Horizontal
+layout.Padding = UDim.new(0,8)
+layout.SortOrder = Enum.SortOrder.LayoutOrder
+
+local scroll = Instance.new("ScrollingFrame")
+scroll.Parent = main
+scroll.Position = UDim2.new(0,15,0,115)
+scroll.Size = UDim2.new(1,-30,1,-130)
+scroll.BackgroundColor3 = INNER
+scroll.BorderSizePixel = 0
+scroll.ScrollBarThickness = 6
+scroll.CanvasSize = UDim2.new(0,0,0,900)
+Instance.new("UICorner", scroll).CornerRadius = UDim.new(0,18)
+
+local grid = Instance.new("UIGridLayout")
+grid.Parent = scroll
+grid.CellSize = UDim2.new(0,240,0,70)
+grid.CellPadding = UDim2.new(0,12,0,12)
+
+-- MINIMIZE SYSTEM
+local minimized = false
+local normalSize = main.Size
+
+minimize.MouseButton1Click:Connect(function()
+    minimized = not minimized
+
+    if minimized then
+        tabsHolder.Visible = false
+        scroll.Visible = false
+        main.Size = UDim2.new(0,550,0,60)
+    else
+        tabsHolder.Visible = true
+        scroll.Visible = true
+        main.Size = normalSize
+    end
+end)
+
+-- button system
+local buttonStates = {}
+local spamRunning, spamTracks = false, {}
+local cloneRunning = false
+local cloneThread = nil
+local tabButtons = {}
+
+local function createButton(tabName, btnName, callback)
+    tabButtons[tabName] = tabButtons[tabName] or {}
+
+    local holder = Instance.new("Frame")
+    holder.Parent = scroll
+    holder.BackgroundColor3 = BUTTON
+    holder.BorderSizePixel = 0
+    Instance.new("UICorner", holder).CornerRadius = UDim.new(0,16)
+
+    local btn = Instance.new("TextButton")
+    btn.Parent = holder
+    btn.Size = UDim2.new(1,0,1,0)
+    btn.BackgroundTransparency = 1
+    btn.Text = ""
+
+    local labelText = "enable "..btnName
+    local label = createShadowText(holder,labelText,24)
+    buttonStates[btnName] = false
+
+    btn.MouseButton1Down:Connect(function() holder.BackgroundColor3 = BUTTON_CLICK end)
+    btn.MouseButton1Up:Connect(function() holder.BackgroundColor3 = BUTTON end)
+
+    btn.MouseButton1Click:Connect(function()
+        buttonStates[btnName] = not buttonStates[btnName]
+        local enabled = buttonStates[btnName]
+
+        for _, child in pairs(holder:GetChildren()) do
+            if child.Name == "ShadowText" or child.Name == "RealText" then child:Destroy() end
+        end
+
+        local labelText = (enabled and "disable " or "enable ") .. btnName
+        label = createShadowText(holder,labelText,24)
+
+        callback(enabled)
+    end)
+
+    holder.Visible = false
+    table.insert(tabButtons[tabName], holder)
+end
+
+-- tab system
+local tabs = {}
+local selected = nil
+
+local function selectTab(tab, name)
+    if selected then
+        selected.BackgroundColor3 = TAB
+    end
+
+    selected = tab
+    tab.BackgroundColor3 = TAB_SELECTED
+
+    -- hide all buttons
+    for _, buttons in pairs(tabButtons) do
+        for _, btn in ipairs(buttons) do
+            btn.Visible = false
+        end
+    end
+
+    -- show buttons for selected tab
+    if tabButtons[name] then
+        for _, btn in ipairs(tabButtons[name]) do
+            btn.Visible = true
+        end
+    end
+end
+
+-- tab names
+local names = {"trolls","teleports","accessories","colours","clients"}
+
+for _, name in ipairs(names) do
+    local tab = Instance.new("TextButton")
+    tab.Parent = tabsHolder
+    tab.Size = UDim2.new(0,130,1,0)
+    tab.BackgroundColor3 = TAB
+    tab.BorderSizePixel = 0
+    tab.Text = ""
+    Instance.new("UICorner", tab).CornerRadius = UDim.new(0,16)
+
+    createShadowText(tab, name, 22)
+
+    tab.MouseButton1Click:Connect(function()
+        selectTab(tab, name)
+    end)
+
+    table.insert(tabs, tab)
+end
+
+tabsHolder.CanvasSize = UDim2.new(0, #names*(130+8), 0, 0)
+
+-- default selected tab
+
+task.defer(function()
+    selectTab(tabs[1], "trolls")
+end)
+
+-- dance
+createButton("trolls","dance", function(enabled)
+    -- only run when button clicked
+    local player = game:GetService("Players").LocalPlayer
+    local character = player.Character or player.CharacterAdded:Wait()
+    local humanoid = character:WaitForChild("Humanoid")
+    local animator = humanoid:FindFirstChildOfClass("Animator") or Instance.new("Animator", humanoid)
+
+    -- local storage
+    local track1, track2
+
+    if enabled then
+        -- anims
+        local anim1 = Instance.new("Animation")
+        anim1.AnimationId = "rbxassetid://6820493966"
+        local anim2 = Instance.new("Animation")
+        anim2.AnimationId = "rbxassetid://14650055488"
+
+        -- load anims
+        track1 = animator:LoadAnimation(anim1)
+        track2 = animator:LoadAnimation(anim2)
+
+        -- loop and high priority
+        track1.Looped = true
+        track2.Looped = true
+        track1.Priority = Enum.AnimationPriority.Action
+        track2.Priority = Enum.AnimationPriority.Action
+
+        -- play danceeeee
+        track1:Play()
+        track2:Play()
+
+        -- save tracks to button state
+        buttonStates["danceTracks"] = {track1, track2}
+    else
+        -- stop tracks
+        local tracks = buttonStates["danceTracks"]
+        if tracks then
+            for _, t in ipairs(tracks) do
+                if t.IsPlaying then
+                    t:Stop()
+                end
+            end
+        end
+    end
+end)
+
+
+createButton("trolls","spam anims", function(enabled)
+    local player = game.Players.LocalPlayer
+    local char = player.Character or player.CharacterAdded:Wait()
+    local humanoid = char:WaitForChild("Humanoid")
+    local animator = humanoid:FindFirstChildOfClass("Animator") or Instance.new("Animator", humanoid)
+
+    buttonStates = buttonStates or {}
+
+    -- anims
+    local animIds = {
+        6643217443, 13356528127, 13339747847, 6590484020,
+        12852222788, 13369580528, 6681968279, 6590482730,
+        6933968071, 6861653701, 14954698607, 6820493966,
+        9110989190, 6681957879, 6681960823, 6590485230,
+        14954703325, 6681964203, 14954707399, 14954738361
+    }
+
+    -- load tracks
+    local tracks = {}
+    for _, id in ipairs(animIds) do
+        local success, track = pcall(function()
+            local anim = Instance.new("Animation")
+            anim.AnimationId = "rbxassetid://"..id
+            local t = animator:LoadAnimation(anim)
+            t.Priority = Enum.AnimationPriority.Action
+            return t
+        end)
+        if success and track then
+            table.insert(tracks, track)
+        end
+    end
+
+    if enabled then
+        buttonStates["spamRunning"] = true
+        buttonStates["spamTracks"] = tracks
+
+        buttonStates["spamThread"] = task.spawn(function()
+            local lastIndex = nil
+
+            while buttonStates["spamRunning"] and char.Parent do
+                -- Stop everything first
+                for _, t in ipairs(tracks) do
+                    if t.IsPlaying then
+                        t:Stop(0)
+                    end
+                end
+
+                -- pick random animation
+                local index
+                repeat
+                    index = math.random(1,#tracks)
+                until index ~= lastIndex or #tracks == 1
+
+                lastIndex = index
+                local track = tracks[index]
+
+                if track and buttonStates["spamRunning"] then
+                    pcall(function()
+                        track:Play(0)
+                    end)
+                end
+
+                task.wait(0.05)
+            end
+        end)
+
+    else
+        -- hard stop loop
+        buttonStates["spamRunning"] = false
+
+        -- stop all tracks immediately
+        if buttonStates["spamTracks"] then
+            for _, t in ipairs(buttonStates["spamTracks"]) do
+                pcall(function()
+                    t:Stop(0)
+                end)
+            end
+        end
+
+        buttonStates["spamTracks"] = nil
+        buttonStates["spamThread"] = nil
+    end
+end)
+
+-- star oath headband
+local starOathOriginals = {} -- store original transparencies
+
+-- create button
+createButton("accessories","star oath\nheadband", function(enabled)
+
+    -- find EditorRig
+    local editorRig = workspace:FindFirstChild("EditorRig")
+    if not editorRig then
+        warn("EditorRig not found!")
+        return
+    end
+
+    local accessories = editorRig:FindFirstChild("Accessories")
+    if not accessories then
+        warn("Accessories not found!")
+        return
+    end
+
+    local headband = accessories:FindFirstChild("Star Oath Headband")
+    if not headband then
+        warn("Star Oath Headband not found!")
+        return
+    end
+
+    -- toggle transparency
+    for _, part in ipairs(headband:GetDescendants()) do
+        if part:IsA("BasePart") and not string.match(part.Name:lower(), "long") then
+            if enabled then
+                starOathOriginals[part] = part.Transparency
+                part.Transparency = 0
+            else
+                if starOathOriginals[part] then
+                    part.Transparency = starOathOriginals[part]
+                end
+            end
+        end
+    end
+
+end)
+
+-- left arm star oath
+createButton("accessories","left arm\nstar oath", function(enabled)
+
+    -- find EditorRig
+    local editorRig = workspace:FindFirstChild("EditorRig")
+    if not editorRig then
+        warn("EditorRig not found in workspace!")
+        return
+    end
+
+    local accessories = editorRig:FindFirstChild("Accessories")
+    if not accessories then
+        warn("Accessories folder not found in EditorRig!")
+        return
+    end
+
+    local leftArm = accessories:FindFirstChild("Left Arm Star Oath")
+    if not leftArm then
+        warn("Left Arm Star Oath not found in Accessories")
+        return
+    end
+
+    -- toggle parts and components 
+    local function toggleAll(model)
+        for _, item in ipairs(model:GetDescendants()) do
+            -- BaseParts: transparency 0 = enabled, 1 = disabled
+            if item:IsA("BasePart") then
+                item.Transparency = enabled and 0 or 1
+            end
+
+            -- components with enabled
+            if item:IsA("ParticleEmitter") or item:IsA("Light") or item:IsA("Trail") then
+                item.Enabled = enabled
+            elseif item:FindFirstChild("Enabled") and typeof(item.Enabled.Value) == "boolean" then
+                item.Enabled = enabled
+            end
+        end
+    end
+
+    toggleAll(leftArm)
+
+end)
+
+-- right arm star oath
+createButton("accessories","right arm\nstar oath", function(enabled)
+
+    -- find EditorRig
+    local editorRig = workspace:FindFirstChild("EditorRig")
+    if not editorRig then
+        warn("EditorRig not found in workspace!")
+        return
+    end
+
+    local accessories = editorRig:FindFirstChild("Accessories")
+    if not accessories then
+        warn("Accessories folder not found in EditorRig!")
+        return
+    end
+
+    local rightArm = accessories:FindFirstChild("Right Arm Star Oath")
+    if not rightArm then
+        warn("Right Arm Star Oath not found in Accessories")
+        return
+    end
+
+    -- toggle parts and components
+    local function toggleAll(model)
+        for _, item in ipairs(model:GetDescendants()) do
+            -- BaseParts: transparency 0 = enabled, 1 = disabled
+            if item:IsA("BasePart") then
+                item.Transparency = enabled and 0 or 1
+            end
+
+            -- components with enabled
+            if item:IsA("ParticleEmitter") or item:IsA("Light") or item:IsA("Trail") then
+                item.Enabled = enabled
+            elseif item:FindFirstChild("Enabled") and typeof(item.Enabled.Value) == "boolean" then
+                item.Enabled = enabled
+            end
+        end
+    end
+
+    toggleAll(rightArm)
+
+end)
+
+-- star oath neckpiece
+createButton("accessories","star oath\nneckpiece", function(enabled)
+
+    -- find EditorRig
+    local editorRig = workspace:FindFirstChild("EditorRig")
+    if not editorRig then
+        warn("EditorRig not found in workspace!")
+        return
+    end
+
+    local accessories = editorRig:FindFirstChild("Accessories")
+    if not accessories then
+        warn("Accessories folder not found in EditorRig!")
+        return
+    end
+
+    local neckpiece = accessories:FindFirstChild("Star Oath Neckpiece")
+    if not neckpiece then
+        warn("Star Oath Neckpiece not found in Accessories")
+        return
+    end
+
+    -- toggle parts and components 
+    local function toggleAll(model)
+        for _, item in ipairs(model:GetDescendants()) do
+            -- BaseParts: transparency 0 = enabled, 1 = disabled
+            if item:IsA("BasePart") then
+                item.Transparency = enabled and 0 or 1
+            end
+
+            -- components with enabled
+            if item:IsA("ParticleEmitter") or item:IsA("Light") or item:IsA("Trail") then
+                item.Enabled = enabled
+            elseif item:FindFirstChild("Enabled") and typeof(item.Enabled.Value) == "boolean" then
+                item.Enabled = enabled
+            end
+        end
+    end
+
+    toggleAll(neckpiece)
+
+end)
+
+-- mohawk
+createButton("accessories","mohawk", function(enabled)
+
+    -- find EditorRig
+    local editorRig = workspace:FindFirstChild("EditorRig")
+    if not editorRig then
+        warn("EditorRig not found in workspace!")
+        return
+    end
+
+    local accessories = editorRig:FindFirstChild("Accessories")
+    if not accessories then
+        warn("Accessories folder not found in EditorRig!")
+        return
+    end
+
+    local mohawk = accessories:FindFirstChild("Mohawk")
+    if not mohawk then
+        warn("Mohawk not found in Accessories")
+        return
+    end
+
+    -- toggle parts and components
+    local function toggleAll(model)
+        for _, item in ipairs(model:GetDescendants()) do
+            -- BaseParts: transparency 0 = enabled, 1 = disabled
+            if item:IsA("BasePart") then
+                item.Transparency = enabled and 0 or 1
+            end
+
+            -- components with enabled
+            if item:IsA("ParticleEmitter") or item:IsA("Light") or item:IsA("Trail") then
+                item.Enabled = enabled
+            elseif item:FindFirstChild("Enabled") and typeof(item.Enabled.Value) == "boolean" then
+                item.Enabled = enabled
+            end
+        end
+    end
+
+    toggleAll(mohawk)
+
+end)
+
+-- eyecover mohawk 
+createButton("accessories","eyecover\nmohawk", function(enabled)
+
+ -- find EditorRig
+    local editorRig = workspace:FindFirstChild("EditorRig")
+    if not editorRig then
+        warn("EditorRig not found in workspace!")
+     return
+    end
+
+    local accessories = editorRig:FindFirstChild("Accessories")
+    if not accessories then
+        warn("Accessories folder not found in EditorRig!")
+        return
+    end
+
+    local mohawk = accessories:FindFirstChild("Eyecover Mohawk")
+    if not mohawk then
+        warn("Eyecover Mohawk not found in Accessories")
+        return
+    end
+
+    -- toggle parts and components
+    local function toggleAll(model)
+        for _, item in ipairs(model:GetDescendants()) do
+            -- BaseParts: transparency 0 = enabled, 1 = disabled
+            if item:IsA("BasePart") then
+                item.Transparency = enabled and 0 or 1
+            end
+
+            -- components with enabled
+            if item:IsA("ParticleEmitter") or item:IsA("Light") or item:IsA("Trail") then
+                item.Enabled = enabled
+            elseif item:FindFirstChild("Enabled") and typeof(item.Enabled.Value) == "boolean" then
+                item.Enabled = enabled
+            end
+        end
+    end
+
+    toggleAll(mohawk)
+
+end)
+
+-- half pupil shine
+createButton("accessories","half pupil\n shine",function(enabled)
+
+    local workspace = game:GetService("Workspace")
+    local editorRig = workspace:FindFirstChild("EditorRig")
+    if not editorRig then return end
+
+    local halfPupil = editorRig:FindFirstChild("Half Pupil Shine")
+    if not halfPupil then return end
+
+    local transparency = enabled and 0 or 1
+
+    if halfPupil:IsA("BasePart") then
+        halfPupil.Transparency = transparency
+    end
+
+    for _, obj in ipairs(halfPupil:GetDescendants()) do
+        if obj:IsA("BasePart") then
+            obj.Transparency = transparency
+        end
+    end
+
+end)
+
+-- fairy necklace
+createButton("accessories","fairy necklace",function(enabled)
+
+    local workspace = game:GetService("Workspace")
+    local editorRig = workspace:FindFirstChild("EditorRig")
+    if not editorRig then return end
+
+    local targets = {
+        "FairyLightsContributor",
+        "FairyStarContributor",
+        "FairyWiresContributor"
+    }
+
+    for _, name in ipairs(targets) do
+        local obj = editorRig:FindFirstChild(name)
+
+        if obj then
+
+            local transparency = enabled and 0 or 1
+            local emitEnabled = enabled
+
+            -- direct part
+            if obj:IsA("BasePart") then
+                obj.Transparency = transparency
+                obj.LocalTransparencyModifier = transparency
+            end
+
+            -- descendants
+            for _, descendant in ipairs(obj:GetDescendants()) do
+
+                if descendant:IsA("BasePart") then
+                    descendant.Transparency = transparency
+                    descendant.LocalTransparencyModifier = transparency
+                end
+
+                if descendant:IsA("ParticleEmitter")
+                or descendant:IsA("Trail")
+                or descendant:IsA("PointLight") then
+                    descendant.Enabled = emitEnabled
+                end
+
+            end
+
+        end
+    end
+
+end)
+
+-- left checkered cuff
+createButton("accessories","left\n checkered cuff",function(enabled)
+
+    local workspace = game:GetService("Workspace")
+
+    local editorRig = workspace:FindFirstChild("EditorRig")
+    if not editorRig then return end
+
+    local accessories = editorRig:FindFirstChild("Accessories")
+    if not accessories then return end
+
+    local leftFolder = accessories:FindFirstChild("Front Left Checkered Cuffs")
+    if not leftFolder then return end
+
+    local transparency = enabled and 0 or 1
+
+    for _, obj in ipairs(leftFolder:GetDescendants()) do
+        if obj:IsA("BasePart") then
+            obj.Transparency = transparency
+            obj.LocalTransparencyModifier = transparency
+        end
+
+        if obj:IsA("ParticleEmitter")
+        or obj:IsA("Trail")
+        or obj:IsA("PointLight") then
+            obj.Enabled = enabled
+        end
+    end
+
+end)
+
+-- right checkered cuff
+createButton("accessories","right\n checkered cuff",function(enabled)
+
+    local workspace = game:GetService("Workspace")
+
+    local editorRig = workspace:FindFirstChild("EditorRig")
+    if not editorRig then return end
+
+    local accessories = editorRig:FindFirstChild("Accessories")
+    if not accessories then return end
+
+    local rightFolder = accessories:FindFirstChild("Front Right Checkered Cuffs")
+    if not rightFolder then return end
+
+    local transparency = enabled and 0 or 1
+
+    for _, obj in ipairs(rightFolder:GetDescendants()) do
+        if obj:IsA("BasePart") then
+            obj.Transparency = transparency
+            obj.LocalTransparencyModifier = transparency
+        end
+
+        if obj:IsA("ParticleEmitter")
+        or obj:IsA("Trail")
+        or obj:IsA("PointLight") then
+            obj.Enabled = enabled
+        end
+    end
+
+end)
+
+-- back left partial bandage
+createButton("accessories","back left\npartial bandage",function(enabled)
+    local editorRig = workspace:FindFirstChild("EditorRig")
+    if not editorRig then return end
+    local folder = editorRig:FindFirstChild("Accessories"):FindFirstChild("Back Left Partial Bandage")
+    if not folder then return end
+    for _, obj in ipairs(folder:GetDescendants()) do
+        if obj:IsA("BasePart") then
+            obj.Transparency = enabled and 0 or 1
+            obj.LocalTransparencyModifier = enabled and 0 or 1
+        end
+    end
+end)
+
+-- back right partial bandage
+createButton("accessories","back right\npartial bandage",function(enabled)
+    local editorRig = workspace:FindFirstChild("EditorRig")
+    if not editorRig then return end
+    local folder = editorRig:FindFirstChild("Accessories"):FindFirstChild("Back Right Partial Bandage")
+    if not folder then return end
+    for _, obj in ipairs(folder:GetDescendants()) do
+        if obj:IsA("BasePart") then
+            obj.Transparency = enabled and 0 or 1
+            obj.LocalTransparencyModifier = enabled and 0 or 1
+        end
+    end
+end)
+
+-- BODY BANDAGE
+createButton("accessories","body\nbandage",function(enabled)
+    local editorRig = workspace:FindFirstChild("EditorRig")
+    if not editorRig then return end
+    local folder = editorRig:FindFirstChild("Accessories"):FindFirstChild("Body Bandage")
+    if not folder then return end
+    for _, obj in ipairs(folder:GetDescendants()) do
+        if obj:IsA("BasePart") then
+            obj.Transparency = enabled and 0 or 1
+            obj.LocalTransparencyModifier = enabled and 0 or 1
+        end
+    end
+end)
+
+-- front left partial bandage
+createButton("accessories","front left\npartial bandage",function(enabled)
+    local editorRig = workspace:FindFirstChild("EditorRig")
+    if not editorRig then return end
+    local folder = editorRig:FindFirstChild("Accessories"):FindFirstChild("Front Left Partial Bandage")
+    if not folder then return end
+    for _, obj in ipairs(folder:GetDescendants()) do
+        if obj:IsA("BasePart") then
+            obj.Transparency = enabled and 0 or 1
+            obj.LocalTransparencyModifier = enabled and 0 or 1
+        end
+    end
+end)
+
+-- front right partial bandage
+createButton("accessories","front right\npartial bandage",function(enabled)
+    local editorRig = workspace:FindFirstChild("EditorRig")
+    if not editorRig then return end
+    local folder = editorRig:FindFirstChild("Accessories"):FindFirstChild("Front Right Partial Bandage")
+    if not folder then return end
+    for _, obj in ipairs(folder:GetDescendants()) do
+        if obj:IsA("BasePart") then
+            obj.Transparency = enabled and 0 or 1
+            obj.LocalTransparencyModifier = enabled and 0 or 1
+        end
+    end
+end)
+
+-- everything
+createButton("accessories","everything", function(enabled)
+
+    -- find EditorRig
+    local editorRig = workspace:FindFirstChild("EditorRig")
+    if not editorRig then
+        warn("EditorRig not found in workspace!")
+        return
+    end
+
+    -- toggle baseparts
+    local function toggleAll(model)
+        for _, item in ipairs(model:GetDescendants()) do
+            if item:IsA("BasePart") then
+                item.Transparency = enabled and 0 or 1
+            end
+
+            -- components with enabled
+            if item:IsA("ParticleEmitter") or item:IsA("Light") or item:IsA("Trail") then
+                item.Enabled = enabled
+            elseif item:FindFirstChild("Enabled") and typeof(item.Enabled.Value) == "boolean" then
+                item.Enabled = enabled
+            end
+        end
+    end
+
+    -- apply
+    toggleAll(editorRig)
+
+end)
+  -- spam clones
+local function toggleSpamClones(enabled)
+    local character = player.Character or player.CharacterAdded:Wait()
+    local root = character:WaitForChild("HumanoidRootPart")
+    local clonesPerTick = 5
+    if enabled then
+        cloneRunning = true
+        cloneThread = task.spawn(function()
+            while cloneRunning do
+                for i=1,clonesPerTick do
+                    local clone = character:Clone()
+                    clone.Parent = Workspace
+                    clone:SetPrimaryPartCFrame(CFrame.new(root.Position+Vector3.new(math.random(-10,10),0,math.random(-10,10))))
+                    for _, part in pairs(clone:GetDescendants()) do if part:IsA("BasePart") then part.CanCollide=false end end
+                    Debris:AddItem(clone,20)
+                end
+                task.wait(0.2)
+            end
+        end)
+    else cloneRunning=false end
+end
+
+-- ragdoll
+local ragdolled = false
+local savedMotors, constraints = {}, {}
+local function ragdollCharacter(char)
+    local humanoid = char:FindFirstChildOfClass("Humanoid")
+    if not humanoid then return end
+    humanoid:ChangeState(Enum.HumanoidStateType.Physics)
+    humanoid.PlatformStand = true
+    for _, motor in pairs(char:GetDescendants()) do
+        if motor:IsA("Motor6D") then
+            local part0, part1 = motor.Part0, motor.Part1
+            if part0 and part1 then
+                table.insert(savedMotors,motor)
+                local att0, att1 = Instance.new("Attachment"), Instance.new("Attachment")
+                att0.CFrame, att1.CFrame = motor.C0, motor.C1
+                att0.Parent, att1.Parent = part0, part1
+                local socket = Instance.new("BallSocketConstraint")
+                socket.Attachment0 = att0
+                socket.Attachment1 = att1
+                socket.Parent = part0
+                table.insert(constraints,socket)
+                motor.Enabled=false
+            end
+        end
+    end
+end
+local function unragdollCharacter(char)
+    local humanoid = char:FindFirstChildOfClass("Humanoid")
+    if not humanoid then return end
+    for _, motor in pairs(savedMotors) do if motor then motor.Enabled=true end end
+    for _, c in pairs(constraints) do if c then c:Destroy() end
+    end
+    savedMotors, constraints = {}, {}
+    humanoid.PlatformStand=false
+    humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+end
+
+-- rainbow glow
+local SPEED = 0.6
+local rgConnection, rgHighlight
+local originalParts = {}
+
+local function toggleRainbow(enabled)
+
+    local char = player.Character or player.CharacterAdded:Wait()
+
+    -- stop existing effect
+    if rgConnection then
+        rgConnection:Disconnect()
+        rgConnection = nil
+    end
+
+    if rgHighlight then
+        rgHighlight:Destroy()
+        rgHighlight = nil
+    end
+
+    -- restore original appearance
+    for part, data in pairs(originalParts) do
+        if part and part.Parent then
+            part.Material = data.Material
+            part.Color = data.Color
+            part.Reflectance = data.Reflectance
+        end
+    end
+
+    originalParts = {}
+
+    if not enabled then
+        return
+    end
+
+    task.wait(0.1)
+
+    -- save original + apply neon
+    for _, obj in pairs(char:GetDescendants()) do
+        if obj:IsA("BasePart") or obj:IsA("MeshPart") then
+
+            originalParts[obj] = {
+                Material = obj.Material,
+                Color = obj.Color,
+                Reflectance = obj.Reflectance
+            }
+
+            obj.Material = Enum.Material.Neon
+            obj.Reflectance = 0
+        end
+    end
+
+    rgHighlight = Instance.new("Highlight")
+    rgHighlight.Parent = char
+    rgHighlight.FillTransparency = 0.25
+    rgHighlight.OutlineTransparency = 1
+    rgHighlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+
+    local hue = 0
+
+    rgConnection = RunService.RenderStepped:Connect(function(dt)
+
+        if not char.Parent then return end
+
+        hue = (hue + dt * SPEED) % 1
+        local color = Color3.fromHSV(hue,1,1)
+
+        for part in pairs(originalParts) do
+            if part and part.Parent then
+                part.Color = color
+            end
+        end
+
+        if rgHighlight then
+            rgHighlight.FillColor = color
+        end
+
+    end)
+end
+
+-- create buttons
+-- Trolls
+
+-- Clients
+createButton("clients","spam clones",toggleSpamClones)
+createButton("clients","ragdoll",function(enabled)
+    local char = player.Character
+    if not char then return end
+    if enabled then ragdollCharacter(char) else unragdollCharacter(char) end
+end)
+createButton("clients","rainbow glow",toggleRainbow)
+
+-- ghost
+local ghostConnection
+local ghostOriginal = {}
+
+createButton("clients","ghost",function(enabled)
+
+    if enabled then
+        -- Apply ForceField to all existing parts and save originals
+        for _, obj in pairs(game.Workspace:GetDescendants()) do
+            if obj:IsA("BasePart") then
+                ghostOriginal[obj] = obj.Material
+                obj.Material = Enum.Material.ForceField
+            end
+        end
+
+        -- Apply ForceField to newly added parts
+        ghostConnection = game.Workspace.DescendantAdded:Connect(function(obj)
+            if obj:IsA("BasePart") then
+                ghostOriginal[obj] = obj.Material
+                obj.Material = Enum.Material.ForceField
+            end
+        end)
+
+    else
+        -- disconnect listener
+        if ghostConnection then
+            ghostConnection:Disconnect()
+            ghostConnection = nil
+        end
+
+        -- restore original materials
+        for part, material in pairs(ghostOriginal) do
+            if part and part.Parent then
+                part.Material = material
+            end
+        end
+
+        ghostOriginal = {}
+    end
+
+end)
+
+createButton("clients", "science\n diagram", function(enabled)
+    local player = game.Players.LocalPlayer
+    local char = player.Character or player.CharacterAdded:Wait()
+    local shrinkAmount = 0.3 -- 30% of original size
+
+    if enabled then
+        -- Save original sizes
+        originalSizes = {}
+        for _, part in pairs(char:GetDescendants()) do
+            if part:IsA("BasePart") or part:IsA("MeshPart") then
+                originalSizes[part] = part.Size
+                part.Size = part.Size * shrinkAmount
+            end
+        end
+
+        -- save original humanoid scales
+        local humanoid = char:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            originalScales = {}
+            local scaleProps = {"BodyHeightScale", "BodyWidthScale", "HeadScale"}
+            for _, propName in ipairs(scaleProps) do
+                local prop = humanoid:FindFirstChild(propName)
+                if prop and typeof(prop.Value) == "number" then
+                    originalScales[propName] = prop.Value
+                    prop.Value = prop.Value * shrinkAmount
+                end
+            end
+        end
+    else
+        -- restore original sizes
+        for part, size in pairs(originalSizes) do
+            if part and part.Parent then
+                part.Size = size
+            end
+        end
+
+        -- restore humanoid scales
+        local humanoid = char:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            for propName, value in pairs(originalScales) do
+                local prop = humanoid:FindFirstChild(propName)
+                if prop and typeof(prop.Value) == "number" then
+                    prop.Value = value
+                end
+            end
+        end
+    end
+end)
+
+-- yes/no
+
+local RunService = game:GetService("RunService")
+
+local neckMotor = nil
+local neckOriginalC0 = nil
+local yesConnection = nil
+local noConnection = nil
+
+local function getNeck()
+    local char = player.Character or player.CharacterAdded:Wait()
+    for _, obj in pairs(char:GetDescendants()) do
+        if obj:IsA("Motor6D") and obj.Name:lower():find("neck") then
+            return obj
+        end
+    end
+end
+
+-- yes
+createButton("clients", "yes", function(enabled)
+
+    neckMotor = neckMotor or getNeck()
+    if not neckMotor then return end
+
+    -- save original
+    if not neckOriginalC0 then
+        neckOriginalC0 = neckMotor.C0
+    end
+
+    if enabled then
+        local amplitude = math.rad(20)
+        local speed = 25
+
+        yesConnection = RunService.RenderStepped:Connect(function()
+            local t = tick() * speed
+            local angle = math.sin(t) * amplitude
+            neckMotor.C0 = neckOriginalC0 * CFrame.Angles(angle, 0, 0)
+        end)
+
+    else
+        if yesConnection then
+            yesConnection:Disconnect()
+            yesConnection = nil
+        end
+
+        -- force reset
+        neckMotor.C0 = neckOriginalC0
+    end
+end)
+
+
+-- no
+createButton("clients", "no", function(enabled)
+
+    neckMotor = neckMotor or getNeck()
+    if not neckMotor then return end
+
+    -- save original
+    if not neckOriginalC0 then
+        neckOriginalC0 = neckMotor.C0
+    end
+
+    if enabled then
+        local amplitude = math.rad(20)
+        local speed = 25
+
+        noConnection = RunService.RenderStepped:Connect(function()
+            local t = tick() * speed
+            local angle = math.sin(t) * amplitude
+            neckMotor.C0 = neckOriginalC0 * CFrame.Angles(0, angle, 0)
+        end)
+
+    else
+        if noConnection then
+            noConnection:Disconnect()
+            noConnection = nil
+        end
+
+        -- force reset
+        neckMotor.C0 = neckOriginalC0
+    end
+end)
+
+-- silly
+local sillyConnection = nil
+local sillyOriginals = {}
+
+createButton("clients", "silly", function(enabled)
+    local player = game.Players.LocalPlayer
+    local char = player.Character or player.CharacterAdded:Wait()
+
+    -- stop effect
+    if sillyConnection then
+        sillyConnection:Disconnect()
+        sillyConnection = nil
+    end
+
+    -- restore originals
+    for joint, originalC0 in pairs(sillyOriginals) do
+        if joint and joint.Parent then
+            joint.C0 = originalC0
+        end
+    end
+    sillyOriginals = {}
+
+    if not enabled then return end -- if disabling, stop here
+
+    -- collect joints
+    local leftEar, rightEar, neck
+    local tailJoints, mouthJoints = {}, {}
+
+    for _, obj in pairs(char:GetDescendants()) do
+        if obj:IsA("Motor6D") then
+            local name = obj.Name:lower()
+            if name:find("lear") then
+                leftEar = obj
+            elseif name:find("rear") then
+                rightEar = obj
+            elseif name:find("neck") then
+                neck = obj
+            elseif name:find("tail") then
+                table.insert(tailJoints, obj)
+            elseif name:find("jaw") or name:find("mouth") then
+                table.insert(mouthJoints, obj)
+            end
+        end
+    end
+
+    -- save originals
+    for _, joint in pairs({leftEar, rightEar, neck}) do
+        if joint then sillyOriginals[joint] = joint.C0 end
+    end
+    for _, joint in pairs(tailJoints) do sillyOriginals[joint] = joint.C0 end
+    for _, joint in pairs(mouthJoints) do sillyOriginals[joint] = joint.C0 end
+
+    -- parameters
+    local earAmount = math.rad(45)
+    local tailAmount = math.rad(25)
+    local tailSpeed = 6
+    local mouthAmount = math.rad(10)
+    local mouthSpeed = 6
+    local neckAmount = math.rad(5)
+    local neckSpeed = 4
+
+    -- animate
+    local RunService = game:GetService("RunService")
+    sillyConnection = RunService.RenderStepped:Connect(function(dt)
+        local t = tick()
+
+        -- ears
+        if leftEar then leftEar.C0 = sillyOriginals[leftEar] * CFrame.Angles(0, 0, earAmount) end
+        if rightEar then rightEar.C0 = sillyOriginals[rightEar] * CFrame.Angles(0, 0, -earAmount) end
+
+        -- tail
+        for _, joint in pairs(tailJoints) do
+            local angle = math.sin(t * tailSpeed) * tailAmount
+            joint.C0 = sillyOriginals[joint] * CFrame.Angles(0, angle, 0)
+        end
+
+        -- mouth
+        for _, joint in pairs(mouthJoints) do
+            local angle = (math.sin(t * mouthSpeed) * 0.5 + 0.5) * mouthAmount
+            joint.C0 = sillyOriginals[joint] * CFrame.Angles(-angle, 0, 0)
+        end
+
+        -- neck
+        if neck then
+            local angle = math.sin(t * neckSpeed) * neckAmount
+            neck.C0 = sillyOriginals[neck] * CFrame.Angles(0, 0, angle)
+        end
+    end)
+end)
