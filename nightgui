@@ -407,6 +407,37 @@ createButton("trolls","spam anims", function(enabled)
     end
 end)
 
+-- EDITOR TEAM BUTTON (Trolls)
+
+local player = game.Players.LocalPlayer
+local remote = game:GetService("ReplicatedStorage"):WaitForChild("RemoteEvents"):WaitForChild("Team")
+local RunService = game:GetService("RunService")
+
+local forcing = false
+local connection = nil
+
+createButton("trolls","editor\n team", function(state)
+
+    if state then
+        forcing = true
+
+        connection = RunService.heartbeat:Connect(function()
+            if forcing then
+                remote:FireServer("Creating Character")
+            end
+        end)
+
+    else
+        forcing = false
+
+        if connection then
+            connection:Disconnect()
+            connection = nil
+        end
+    end
+
+end)
+
 -- star oath headband
 local starOathOriginals = {} -- store original transparencies
 
