@@ -421,7 +421,7 @@ createButton("trolls","editor\n team", function(state)
     if state then
         forcing = true
 
-        connection = RunService.heartbeat:Connect(function()
+        connection = RunService.Heartbeat:Connect(function()
             if forcing then
                 remote:FireServer("Creating Character")
             end
@@ -1065,7 +1065,7 @@ local caption = Instance.new("TextLabel")
 caption.Size = UDim2.new(1, 0, 0, 16)
 caption.Position  = UDim2.new(0, 0, 0, 110)
 caption.BackgroundTransparency = 1
-caption.Text = "note - you cannot steal the morphs of people in editor!"
+caption.Text = "you cannot steal the morphs of people who are in editor!"
 caption.Font = Enum.Font.FredokaOne
 caption.TextSize = 13
 caption.TextColor3 = colors.Text
@@ -1602,4 +1602,67 @@ createButton("clients", "silly", function(enabled)
             neck.C0 = sillyOriginals[neck] * CFrame.Angles(0, 0, angle)
         end
     end)
+end)
+
+local eyeConnection = nil
+local eyeOriginals = {}
+
+createButton("clients", "rainbow eyes", function(enabled)
+
+    local player = game.Players.LocalPlayer
+    local char = player.Character or player.CharacterAdded:Wait()
+
+    -- stop effect
+    if eyeConnection then
+        eyeConnection:Disconnect()
+        eyeConnection = nil
+    end
+
+    -- restore originals
+    for part, data in pairs(eyeOriginals) do
+        if part and part.Parent then
+            part.Material = data.Material
+            part.Color = data.Color
+            part.Reflectance = data.Reflectance
+        end
+    end
+    eyeOriginals = {}
+
+    if not enabled then return end
+
+    -- find eyes (deep search like yours)
+    local leftEye = char:FindFirstChild("leftsclera", true)
+    local rightEye = char:FindFirstChild("rightsclera", true)
+
+    if not leftEye or not rightEye then
+        warn("Could not find eyes!")
+        return
+    end
+
+    -- store originals + apply neon
+    for _, eye in ipairs({leftEye, rightEye}) do
+        eyeOriginals[eye] = {
+            Material = eye.Material,
+            Color = eye.Color,
+            Reflectance = eye.Reflectance
+        }
+
+        eye.Material = Enum.Material.Neon
+        eye.Reflectance = 0
+    end
+
+    -- rainbow loop
+    local hue = 0
+    local RunService = game:GetService("RunService")
+
+    eyeConnection = RunService.RenderStepped:Connect(function(dt)
+        if not char.Parent then return end
+
+        hue = (hue + dt * 0.8) % 1
+        local color = Color3.fromHSV(hue, 1, 1)
+
+        if leftEye then leftEye.Color = color end
+        if rightEye then rightEye.Color = color end
+    end)
+
 end)
