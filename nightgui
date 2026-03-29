@@ -928,9 +928,7 @@ createButton("accessories","everything", function(enabled)
     toggleAll(editorRig)
 
 end)
-==================================================
 -- MORPH STEALER 2.0 (COMPACT UI)
---==================================================
 
 createButton("morphs","morph stealer",function(enabled)
 
