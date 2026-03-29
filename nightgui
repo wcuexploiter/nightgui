@@ -247,7 +247,7 @@ local function selectTab(tab, name)
 end
 
 -- tab names
-local names = {"trolls","teleports","accessories","colours","clients"}
+local names = {"trolls","teleports","accessories","morphs","clients"}
 
 for _, name in ipairs(names) do
     local tab = Instance.new("TextButton")
@@ -926,6 +926,269 @@ createButton("accessories","everything", function(enabled)
 
     -- apply
     toggleAll(editorRig)
+
+end)
+==================================================
+-- MORPH STEALER 2.0 (COMPACT UI)
+--==================================================
+
+createButton("morphs","morph stealer",function(enabled)
+
+if enabled then
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+local StarterGui = game:GetService("StarterGui")
+
+local player = Players.LocalPlayer
+local PlayerGui = player:WaitForChild("PlayerGui")
+
+	local colors = {
+	Main      = MAIN,
+	Raised    = RAISED,
+	Button    = BUTTON,
+	Text      = TEXT
+}
+
+-- clean old
+if PlayerGui:FindFirstChild("MorphStealerGui") then
+	PlayerGui.MorphStealerGui:Destroy()
+end
+
+--==============================
+-- GUI ROOT
+--==============================
+local gui = Instance.new("ScreenGui")
+gui.Name = "MorphStealerGui"
+gui.ResetOnSpawn = false
+gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+gui.Parent = PlayerGui
+
+--==============================
+-- MAIN FRAME (SHORT + SKINNY)
+--==============================
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 320, 0, 175)
+frame.Position = UDim2.new(0.5, -160, 0.5, -105)
+frame.BackgroundColor3 = colors.Main
+frame.BorderSizePixel = 0
+frame.Active = true
+frame.Draggable = true
+frame.Parent = gui
+Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 10)
+
+--==============================
+-- TOP BAR
+--==============================
+local topBar = Instance.new("Frame")
+topBar.Size = UDim2.new(1, 0, 0, 32)
+topBar.BackgroundColor3 = colors.Raised
+topBar.BorderSizePixel = 0
+topBar.Parent = frame
+Instance.new("UICorner", topBar).CornerRadius = UDim.new(0, 10)
+
+local mask = Instance.new("Frame")
+mask.Size = UDim2.new(1, 0, 0, 10)
+mask.Position = UDim2.new(0, 0, 1, -10)
+mask.BackgroundColor3 = colors.Raised
+mask.BorderSizePixel = 0
+mask.Parent = topBar
+
+-- title
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, -36, 1, 0)
+title.Position = UDim2.new(0, 10, 0, 0)
+title.BackgroundTransparency = 1
+title.Text = "morph stealer"
+title.Font = Enum.Font.FredokaOne
+title.TextSize = 14
+title.TextColor3 = colors.Text
+title.TextXAlignment = Enum.TextXAlignment.Left
+title.Parent = topBar
+
+-- close
+local close = Instance.new("TextButton")
+close.Size = UDim2.new(0, 32, 0, 32)
+close.Position = UDim2.new(1, -32, 0, 0)
+close.BackgroundTransparency = 1
+close.Text = "x"
+close.Font = Enum.Font.FredokaOne
+close.TextSize = 18
+close.TextColor3 = colors.Text
+close.Parent = topBar
+close.MouseButton1Click:Connect(function()
+	gui:Destroy()
+end)
+
+--==============================
+-- CONTENT AREA
+--==============================
+local content = Instance.new("Frame")
+content.Size = UDim2.new(1, -20, 1, -48)
+content.Position = UDim2.new(0, 10, 0, 38)
+content.BackgroundTransparency = 1
+content.Parent = frame
+
+--==============================
+-- USERNAME BOX
+--==============================
+local userBox = Instance.new("TextBox")
+userBox.Size = UDim2.new(1, 0, 0, 38)
+userBox.Position = UDim2.new(0, 0, 0, 10)
+userBox.PlaceholderText = "target..."
+userBox.ClearTextOnFocus = false
+userBox.Text = ""
+userBox.Font = Enum.Font.FredokaOne
+userBox.TextSize = 14
+userBox.TextColor3 = colors.Text
+userBox.BackgroundColor3 = colors.Button
+userBox.BorderSizePixel = 0
+userBox.Parent = content
+Instance.new("UICorner", userBox).CornerRadius = UDim.new(0, 8)
+
+--==============================
+-- STEAL BUTTON
+--==============================
+local stealBtn = Instance.new("TextButton")
+stealBtn.Size = UDim2.new(1, 0, 0, 38)
+stealBtn.Position = UDim2.new(0, 0, 0, 62)
+stealBtn.Text = "steal morph"
+stealBtn.Font = Enum.Font.FredokaOne
+stealBtn.TextSize = 14
+stealBtn.TextColor3 = colors.Text
+stealBtn.BackgroundColor3 = colors.Button
+stealBtn.BorderSizePixel = 0
+stealBtn.Parent = content
+Instance.new("UICorner", stealBtn).CornerRadius = UDim.new(0, 8)
+
+--==============================
+-- CAPTION
+--==============================
+local caption = Instance.new("TextLabel")
+caption.Size = UDim2.new(1, 0, 0, 16)
+caption.Position  = UDim2.new(0, 0, 0, 110)
+caption.BackgroundTransparency = 1
+caption.Text = "note - you cannot steal the morphs of people in editor!"
+caption.Font = Enum.Font.FredokaOne
+caption.TextSize = 13
+caption.TextColor3 = colors.Text
+caption.TextTransparency = 0.25
+caption.TextXAlignment = Enum.TextXAlignment.Left
+caption.Parent = content
+
+
+--==============================
+-- SMART AUTOCOMPLETE (Username + DisplayName, certainty only)
+--==============================
+local autofillLocked = false
+
+local function getMatches(input)
+	input = input:lower()
+	local matches = {}
+
+	for _, plr in ipairs(Players:GetPlayers()) do
+		if plr ~= player then
+			if plr.Name:lower():sub(1, #input) == input
+			or (plr.DisplayName and plr.DisplayName:lower():sub(1, #input) == input) then
+				table.insert(matches, plr)
+			end
+		end
+	end
+
+	return matches
+end
+
+
+
+userBox:GetPropertyChangedSignal("Text"):Connect(function()
+	if not userBox:IsFocused() then return end
+	if autofillLocked then return end
+	if userBox.Text == "" then return end
+
+	local matches = getMatches(userBox.Text)
+
+	if #matches == 1 then
+		local plr = matches[1]
+		autofillLocked = true
+
+		userBox.Text = plr.Name
+		userBox.CursorPosition = #plr.Name + 1
+		userBox.TextEditable = false
+
+		task.delay(2, function()
+			userBox.TextEditable = true
+			autofillLocked = false
+		end)
+	end
+end)
+
+
+stealBtn.MouseButton1Click:Connect(function()
+	local targetName = userBox.Text
+	if targetName == "" then
+		return
+	end
+
+	local targetPlayer = Players:FindFirstChild(targetName)
+	if not targetPlayer then
+		return
+	end
+
+	local targetChar = Workspace:FindFirstChild(targetPlayer.Name)
+	if not targetChar then
+		return
+	end
+
+	local editorRig = Workspace:FindFirstChild("EditorRig")
+	if not editorRig then
+		return
+	end
+
+	--==============================
+	-- COLLECT TARGET PARTS + COLORS
+	--==============================
+	local KEEP_NAMES = {}
+	local COLOR_MAP = {}
+
+	for _, obj in ipairs(targetChar:GetDescendants()) do
+		if obj:IsA("BasePart") then
+			KEEP_NAMES[obj.Name] = true
+			COLOR_MAP[obj.Name] = obj.Color
+		end
+	end
+
+	if next(KEEP_NAMES) == nil then
+		return
+	end
+
+	--==============================
+	-- APPLY TO EDITORRIG
+	--==============================
+	for _, obj in ipairs(editorRig:GetDescendants()) do
+		if obj:IsA("BasePart") then
+			if KEEP_NAMES[obj.Name] then
+				obj.Transparency = 0
+				obj.LocalTransparencyModifier = 0
+
+				if COLOR_MAP[obj.Name] then
+					obj.Color = COLOR_MAP[obj.Name]
+				end
+			else
+				obj.Transparency = 1
+				obj.LocalTransparencyModifier = 1
+			end
+		end
+	end
+
+end)
+
+else
+
+local gui = game.Players.LocalPlayer.PlayerGui:FindFirstChild("MorphStealerGui")
+if gui then
+    gui:Destroy()
+end
+
+end
 
 end)
   -- spam clones
